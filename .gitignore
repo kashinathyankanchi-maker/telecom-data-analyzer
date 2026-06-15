@@ -15,6 +15,8 @@ env/
 *.log
 
 # ── Flutter / Frontend ────────────────────────────────────────────────────────
+# Keep flutter project pubspec.lock tracked for reproducible CI builds
+# frontend/pubspec.lock   ← intentionally NOT ignored
 frontend/.dart_tool/
 frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
@@ -22,7 +24,6 @@ frontend/.packages
 frontend/build/
 frontend/.pub-cache/
 frontend/.pub/
-frontend/pubspec.lock
 
 # ── IDE ────────────────────────────────────────────────────────────────────────
 .idea/
