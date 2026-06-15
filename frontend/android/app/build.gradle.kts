@@ -6,7 +6,10 @@ plugins {
 
 android {
     namespace = "com.telecom.telecom_analyzer"
-    compileSdk = flutter.compileSdkVersion
+    // Hard-pin to 36: file_picker requires flutter_plugin_android_lifecycle
+    // which mandates compileSdk >= 36. Cannot use flutter.compileSdkVersion
+    // (defaults to 34) here.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -20,7 +23,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

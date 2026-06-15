@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.8          # Required Flutter icon font package
 
   # ── Networking ───────────────────────────────────────────────────────────────
   dio: ^5.4.3+1                    # HTTP client with interceptors & multipart upload
@@ -24,7 +25,7 @@ dependencies:
   latlong2: ^0.9.1                 # LatLng coordinate type used by flutter_map
 
   # ── Graph / Link Analysis (Feature C) ────────────────────────────────────────
-  graphview: ^1.2.0                # Force-directed / tree graph widget
+  graphview: ^1.5.1                # Force-directed / tree graph widget (API: FruchtermanReingoldConfiguration)
 
   # ── File Picker (Feature A) ──────────────────────────────────────────────────
   file_picker: ^8.0.3              # Cross-platform file picker
