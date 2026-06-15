@@ -1,7 +1,4 @@
 // lib/screens/ingest/ingest_screen.dart
-// ─────────────────────────────────────────────────────────────────────────────
-// Feature A: CSV Data Ingestion Screen
-// ─────────────────────────────────────────────────────────────────────────────
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,7 +57,7 @@ class _IngestNotifier extends StateNotifier<_IngestState> {
 
   Future<void> pickFile() async {
     state = state.copyWith(status: _UploadStatus.picking);
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePickerPlatform.instance.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
       withData: true,
