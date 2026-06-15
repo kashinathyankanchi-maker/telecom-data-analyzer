@@ -1,0 +1,5 @@
+package com.telecom.telecom_analyzer
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()

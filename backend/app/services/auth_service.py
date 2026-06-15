@@ -12,8 +12,14 @@ Security decisions:
 from __future__ import annotations
 
 import logging
+import warnings
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
+# Suppress the harmless passlib/bcrypt version-detection warning.
+# passlib 1.7.4 looks for bcrypt.__about__.__version__ which bcrypt 4.x removed.
+# The library still works correctly — this is just a noisy false-alarm warning.
+warnings.filterwarnings("ignore", message=".*error reading bcrypt version.*")
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -31,13 +37,22 @@ _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(plain: str) -> str:
-    """Return the bcrypt hash of a plaintext password."""
-    return _pwd_context.hash(plain)
+    """Return the bcrypt hash of a plaintext password.
+    
+    bcrypt has a hard limit of 72 bytes. Passwords longer than this are
+    silently truncated by the C library, which can cause verify() to return
+    True for different strings. We truncate explicitly so behaviour is
+    predictable and consistent across bcrypt versions.
+    """
+    return _pwd_context.hash(plain[:72])
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """Return True if `plain` matches the stored bcrypt hash."""
-    return _pwd_context.verify(plain, hashed)
+    """Return True if `plain` matches the stored bcrypt hash.
+    
+    Truncate to 72 bytes to match the behaviour of hash_password().
+    """
+    return _pwd_context.verify(plain[:72], hashed)
 
 
 # ── JWT ────────────────────────────────────────────────────────────────────────
