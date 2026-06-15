@@ -28,7 +28,7 @@ dependencies:
   graphview: ^1.5.1                # Force-directed / tree graph widget (API: FruchtermanReingoldConfiguration)
 
   # ── File Picker (Feature A) ──────────────────────────────────────────────────
-  file_picker: ^8.0.3              # Cross-platform file picker
+  file_picker: ^11.0.0             # Cross-platform file picker (v11 supports compileSdk 36)
 
   # ── UI Utilities ─────────────────────────────────────────────────────────────
   google_fonts: ^6.2.1             # Inter font family
