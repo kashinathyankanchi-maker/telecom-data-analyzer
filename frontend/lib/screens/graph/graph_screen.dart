@@ -279,10 +279,17 @@ class _GraphViewState extends State<_GraphView> {
     }
 
     _algorithm = FruchtermanReingoldAlgorithm(
-      iterations: 1000,
-      repulsionRate: 0.5,
-      attractionRate: 0.01,
-      maxDelta: 100,
+      FruchtermanReingoldConfiguration(
+        iterations: 1000,
+        repulsionRate: 0.5,
+        attractionRate: 0.01,
+        repulsionPercentage: 0.4,
+        attractionPercentage: 0.15,
+        clusterPadding: 15,
+        epsilon: 0.0001,
+        lerpFactor: 0.05,
+        movementThreshold: 0.6,
+      ),
     );
   }
 

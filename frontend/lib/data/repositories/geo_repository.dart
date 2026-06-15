@@ -1,5 +1,5 @@
 // lib/data/repositories/geo_repository.dart
-import '../../../lib/core/constants.dart';
+import '../../core/constants.dart';
 import '../models/tdr_model.dart';
 import 'api_client.dart';
 

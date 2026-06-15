@@ -17,7 +17,7 @@ class SecureStorage {
 
   final _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    wOptions: WindowsOptions(useBackwardsCompatibility: false),
+    wOptions: WindowsOptions(),
   );
 
   // ── Token ──────────────────────────────────────────────────────────────────

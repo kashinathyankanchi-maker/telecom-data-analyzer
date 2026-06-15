@@ -1,6 +1,6 @@
 // lib/data/repositories/auth_repository.dart
-import '../../../lib/core/constants.dart';
-import '../../../lib/core/storage.dart';
+import '../../core/constants.dart';
+import '../../core/storage.dart';
 import '../models/auth_model.dart';
 import 'api_client.dart';
 

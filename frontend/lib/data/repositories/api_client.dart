@@ -6,8 +6,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import '../../../lib/core/constants.dart';
-import '../../../lib/core/storage.dart';
+import '../../core/constants.dart';
+import '../../core/storage.dart';
 
 /// Global callback invoked when the server returns 401 (token expired/invalid).
 /// Set by main.dart's auth provider to trigger navigation to the login screen.

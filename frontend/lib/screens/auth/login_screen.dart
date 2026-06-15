@@ -9,9 +9,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../lib/core/constants.dart';
-import '../../../lib/core/theme.dart';
-import '../../../lib/data/repositories/auth_repository.dart';
+import '../../core/constants.dart';
+import '../../core/theme.dart';
+import '../../data/repositories/auth_repository.dart';
 
 // ── Auth State ─────────────────────────────────────────────────────────────────
 enum _LoginStatus { idle, loading, error }

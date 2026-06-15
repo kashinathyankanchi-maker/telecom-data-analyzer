@@ -1,5 +1,5 @@
 // lib/data/repositories/graph_repository.dart
-import '../../../lib/core/constants.dart';
+import '../../core/constants.dart';
 import 'api_client.dart';
 
 class GraphNode {
