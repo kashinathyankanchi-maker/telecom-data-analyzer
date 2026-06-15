@@ -1,10 +1,4 @@
 // lib/core/storage.dart
-// ─────────────────────────────────────────────────────────────────────────────
-// Secure token storage using flutter_secure_storage.
-//
-// Android  → EncryptedSharedPreferences (AES-256 backed by Android Keystore)
-// Windows  → Windows Credential Manager
-// ─────────────────────────────────────────────────────────────────────────────
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorage {
@@ -20,20 +14,21 @@ class SecureStorage {
     wOptions: WindowsOptions(),
   );
 
-  // ── Token ──────────────────────────────────────────────────────────────────
   Future<void> saveToken(String token) => _storage.write(key: _kToken, value: token);
   Future<String?> getToken()           => _storage.read(key: _kToken);
   Future<void> deleteToken()           => _storage.delete(key: _kToken);
 
-  // ── User info (cached for quick header display) ────────────────────────────
   Future<void> saveUserInfo({required String username, required String role}) async {
     await _storage.write(key: _kUsername, value: username);
-    await _storage.write(key: _kRole, value: role);
+    await _storage.write(key: _kRole,     value: role);
   }
 
   Future<String?> getUsername() => _storage.read(key: _kUsername);
   Future<String?> getRole()     => _storage.read(key: _kRole);
 
-  // ── Clear all (logout) ─────────────────────────────────────────────────────
-  Future<void> clearAll() => _storage.deleteAll();
+  Future<void> clearAll() async {
+    await _storage.delete(key: _kToken);
+    await _storage.delete(key: _kUsername);
+    await _storage.delete(key: _kRole);
+  }
 }
