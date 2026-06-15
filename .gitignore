@@ -1,0 +1,48 @@
+# ── Python / Backend ──────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.env
+.venv
+venv/
+env/
+*.log
+
+# ── Flutter / Frontend ────────────────────────────────────────────────────────
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+frontend/.pub-cache/
+frontend/.pub/
+frontend/pubspec.lock
+
+# ── IDE ────────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# Keep docker-compose.yml but exclude override files with secrets
+docker-compose.override.yml
+
+# ── Alembic generated migration files ─────────────────────────────────────────
+# (keep the versions dir itself, but not compiled pyc inside it)
+backend/alembic/versions/*.pyc
+
+# ── Security — never commit real secrets ──────────────────────────────────────
+backend/.env
+*.pem
+*.key
+secrets/

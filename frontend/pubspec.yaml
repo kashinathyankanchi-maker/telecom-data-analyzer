@@ -1,0 +1,52 @@
+name: telecom_analyzer
+description: Cross-Platform Telecom Data Analyzer — CDR, SDR, TDR analysis for Android and Windows.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── Networking ───────────────────────────────────────────────────────────────
+  dio: ^5.4.3+1                    # HTTP client with interceptors & multipart upload
+  
+  # ── State Management ─────────────────────────────────────────────────────────
+  flutter_riverpod: ^2.5.1         # Reactive state management
+
+  # ── Navigation ───────────────────────────────────────────────────────────────
+  go_router: ^14.1.4               # Declarative routing
+
+  # ── Maps (Feature D) ─────────────────────────────────────────────────────────
+  flutter_map: ^6.2.1              # OpenStreetMap-based map widget
+  latlong2: ^0.9.1                 # LatLng coordinate type used by flutter_map
+
+  # ── Graph / Link Analysis (Feature C) ────────────────────────────────────────
+  graphview: ^1.2.0                # Force-directed / tree graph widget
+
+  # ── File Picker (Feature A) ──────────────────────────────────────────────────
+  file_picker: ^8.0.3              # Cross-platform file picker
+
+  # ── UI Utilities ─────────────────────────────────────────────────────────────
+  google_fonts: ^6.2.1             # Inter font family
+  intl: ^0.19.0                    # Date formatting
+  shimmer: ^3.0.0                  # Loading skeleton effect
+  fl_chart: ^0.68.0                # Charts for call statistics
+  percent_indicator: ^4.2.3        # Progress/stat indicators
+  url_launcher: ^6.3.0             # Open external URLs
+
+  # ── Authentication ───────────────────────────────────────────────────────────
+  # Stores JWT tokens securely:
+  #   Android → EncryptedSharedPreferences
+  #   Windows → Windows Credential Manager
+  flutter_secure_storage: ^9.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

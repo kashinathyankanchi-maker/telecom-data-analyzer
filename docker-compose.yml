@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL Database ──────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: telecom_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: telecom_analyzer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: telecom_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/telecom_analyzer
+      APP_ENV: development
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      # Allow Flutter emulator (10.0.2.2), desktop (localhost), and LAN devices
+      ALLOWED_ORIGINS: "http://localhost,http://localhost:8080,http://10.0.2.2,http://10.0.2.2:8000"
+
+      # ── JWT Auth ─────────────────────────────────────────────────────────────
+      # IMPORTANT: Change JWT_SECRET_KEY to a strong random value before deploying!
+      # Generate one with: python -c "import secrets; print(secrets.token_hex(32))"
+      JWT_SECRET_KEY: "CHANGE_ME_BEFORE_PRODUCTION_DO_NOT_USE_THIS_VALUE"
+      JWT_ALGORITHM: "HS256"
+      ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+
+      # Default admin credentials (created on first start if no users exist)
+      # CHANGE THESE after first login!
+      ADMIN_USERNAME: "admin"
+      ADMIN_EMAIL: "admin@telecom.local"
+      ADMIN_PASSWORD: "Admin@1234!"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    working_dir: /app
+
+volumes:
+  postgres_data:
