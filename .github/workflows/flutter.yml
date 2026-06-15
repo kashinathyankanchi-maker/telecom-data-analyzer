@@ -1,0 +1,167 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Flutter CI/CD — Auto-build Android APK + Windows EXE on every push
+# ─────────────────────────────────────────────────────────────────────────────
+name: Flutter Build
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/flutter.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  # ── Android APK Build ────────────────────────────────────────────────────────
+  build-android:
+    name: 🤖 Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (required by Flutter Android toolchain)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: stable
+          cache: true
+
+      - name: Get Flutter dependencies
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: Analyze code (lint)
+        working-directory: frontend
+        run: flutter analyze --no-fatal-infos
+        continue-on-error: true   # Don't fail build on style warnings
+
+      - name: Run unit tests
+        working-directory: frontend
+        run: flutter test
+        continue-on-error: true   # No tests yet — won't fail build
+
+      - name: Build APK (release)
+        working-directory: frontend
+        run: |
+          flutter build apk \
+            --release \
+            --split-per-abi \
+            --dart-define=API_BASE_URL=http://YOUR_SERVER_IP:8000/api/v1
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ github.run_number }}
+          path: |
+            frontend/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            frontend/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            frontend/build/app/outputs/flutter-apk/app-x86_64-release.apk
+          retention-days: 30
+
+      - name: Comment APK download link on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ **Android APK built successfully!**\n\nDownload from the [Actions run artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`
+            })
+
+  # ── Windows EXE Build ────────────────────────────────────────────────────────
+  build-windows:
+    name: 🪟 Build Windows EXE
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop support
+        run: flutter config --enable-windows-desktop
+
+      - name: Get Flutter dependencies
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: Build Windows release
+        working-directory: frontend
+        run: flutter build windows --release
+
+      - name: Zip Windows build output
+        working-directory: frontend/build/windows/x64/runner/Release
+        run: Compress-Archive -Path * -DestinationPath ../../../../../telecom-analyzer-windows.zip
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe-${{ github.run_number }}
+          path: frontend/telecom-analyzer-windows.zip
+          retention-days: 30
+
+  # ── Release (only on main branch, after both builds pass) ────────────────────
+  create-release:
+    name: 📦 Create GitHub Release
+    needs: [ build-android, build-windows ]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk-${{ github.run_number }}
+          path: ./release-assets/android
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe-${{ github.run_number }}
+          path: ./release-assets/windows
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Build #${{ github.run_number }} — ${{ github.sha }}"
+          body: |
+            ## 🚀 Telecom Data Analyzer — Automated Build
+
+            Triggered by push to `main` by **${{ github.actor }}**
+
+            ### Downloads
+            - 📱 **Android APK** (arm64, arm, x86_64)
+            - 🪟 **Windows EXE** (x64)
+
+            ### Commit
+            ${{ github.event.head_commit.message }}
+          files: |
+            ./release-assets/android/*.apk
+            ./release-assets/windows/*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

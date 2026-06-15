@@ -1,0 +1,150 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Python Backend CI — Lint, test, and Docker build check on every push
+# ─────────────────────────────────────────────────────────────────────────────
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  # ── Lint & Type Check ─────────────────────────────────────────────────────────
+  lint:
+    name: 🔍 Lint & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt ruff
+
+      - name: Run Ruff linter
+        working-directory: backend
+        run: ruff check app/ --output-format=github
+        continue-on-error: true   # Warn but don't fail
+
+      - name: Check import structure
+        working-directory: backend
+        run: python -c "from app.main import app; print('✅ App imports OK')"
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/telecom_analyzer"
+          JWT_SECRET_KEY: "test-secret-key-for-ci"
+          JWT_ALGORITHM: "HS256"
+          ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+          ADMIN_USERNAME: "admin"
+          ADMIN_EMAIL: "admin@test.com"
+          ADMIN_PASSWORD: "Test@1234!"
+
+  # ── Docker Build Check ────────────────────────────────────────────────────────
+  docker-build:
+    name: 🐳 Docker Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push — just validate)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: telecom-analyzer-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify image builds successfully
+        run: echo "✅ Docker image built successfully"
+
+  # ── Integration Test (FastAPI + PostgreSQL) ───────────────────────────────────
+  integration-test:
+    name: 🧪 API Integration Test
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: telecom_analyzer_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies + httpx for testing
+        working-directory: backend
+        run: pip install -r requirements.txt pytest pytest-asyncio httpx
+
+      - name: Start FastAPI server in background
+        working-directory: backend
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+          curl -f http://localhost:8000/api/v1/health || exit 1
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/telecom_analyzer_test"
+          JWT_SECRET_KEY: "ci-test-secret-key-do-not-use-in-production"
+          JWT_ALGORITHM: "HS256"
+          ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+          ADMIN_USERNAME: "admin"
+          ADMIN_EMAIL: "admin@test.com"
+          ADMIN_PASSWORD: "Admin@1234!"
+
+      - name: Test health endpoint
+        run: |
+          RESPONSE=$(curl -s http://localhost:8000/api/v1/health)
+          echo "Health response: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"ok"' && echo "✅ Health check passed"
+
+      - name: Test login endpoint
+        run: |
+          RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"identifier":"admin","password":"Admin@1234!"}')
+          echo "Login response: $RESPONSE"
+          echo "$RESPONSE" | grep -q "access_token" && echo "✅ Login endpoint works"
+
+      - name: Test protected endpoint requires auth
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            http://localhost:8000/api/v1/search?q=test)
+          [ "$STATUS" = "403" ] || [ "$STATUS" = "401" ] && echo "✅ Auth guard works (got $STATUS)"
