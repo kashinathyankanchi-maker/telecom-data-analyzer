@@ -1,5 +1,5 @@
 // lib/data/repositories/search_repository.dart
-import '../../core/constants.dart';
+import 'package:telecom_analyzer/core/constants.dart';
 import '../models/cdr_model.dart';
 import '../models/sdr_model.dart';
 import 'api_client.dart';

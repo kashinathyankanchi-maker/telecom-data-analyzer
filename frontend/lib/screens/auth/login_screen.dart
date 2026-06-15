@@ -1,27 +1,19 @@
 // lib/screens/auth/login_screen.dart
-// ─────────────────────────────────────────────────────────────────────────────
-// JWT Login Screen — Premium dark design
-// Supports: Username OR Email + Password
-// Features: animated logo, show/hide password, form validation, error banner,
-//           "Remember me" (auto-fills identifier from SecureStorage)
-// ─────────────────────────────────────────────────────────────────────────────
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants.dart';
-import '../../core/theme.dart';
-import '../../data/repositories/auth_repository.dart';
+import 'package:telecom_analyzer/core/constants.dart';
+import 'package:telecom_analyzer/core/theme.dart';
+import 'package:telecom_analyzer/data/repositories/auth_repository.dart';
 
-// ── Auth State ─────────────────────────────────────────────────────────────────
+// ── Login State ────────────────────────────────────────────────────────────────
 enum _LoginStatus { idle, loading, error }
 
 class _LoginState {
   final _LoginStatus status;
   final String? errorMessage;
-
   const _LoginState({this.status = _LoginStatus.idle, this.errorMessage});
-
   _LoginState copyWith({_LoginStatus? status, String? errorMessage}) => _LoginState(
     status: status ?? this.status,
     errorMessage: errorMessage ?? this.errorMessage,
@@ -46,15 +38,13 @@ class _LoginNotifier extends StateNotifier<_LoginState> {
   }
 }
 
-final _loginProvider =
-    StateNotifierProvider.autoDispose<_LoginNotifier, _LoginState>(
+final _loginProvider = StateNotifierProvider.autoDispose<_LoginNotifier, _LoginState>(
   (_) => _LoginNotifier(),
 );
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
-
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
@@ -94,8 +84,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       _identifierCtrl.text.trim(),
       _passwordCtrl.text,
     );
-
-    // Navigate to home only on success (no error in state)
     if (mounted && ref.read(_loginProvider).status == _LoginStatus.idle) {
       context.go(AppRoutes.ingest);
     }
@@ -111,7 +99,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       backgroundColor: AppColors.bgBase,
       body: Stack(
         children: [
-          // ── Decorative background glows ──────────────────────────────────
           Positioned(
             top: -100, left: -80,
             child: _GlowCircle(color: AppColors.accent, size: 350),
@@ -120,8 +107,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             bottom: -120, right: -60,
             child: _GlowCircle(color: AppColors.secondary, size: 300),
           ),
-
-          // ── Frosted glass backdrop (wide screens) ─────────────────────────
           if (isWide)
             Positioned.fill(
               child: BackdropFilter(
@@ -129,8 +114,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 child: const ColoredBox(color: Colors.transparent),
               ),
             ),
-
-          // ── Content ────────────────────────────────────────────────────────
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -202,11 +185,9 @@ class _LoginForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Logo & Title ────────────────────────────────────────────────
           Center(
             child: Column(
               children: [
-                // App icon
                 Container(
                   width: 72, height: 72,
                   decoration: BoxDecoration(
@@ -217,13 +198,18 @@ class _LoginForm extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
-                      BoxShadow(color: AppColors.accent.withOpacity(0.35), blurRadius: 24, offset: const Offset(0, 8)),
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.35),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
                     ],
                   ),
                   child: const Icon(Icons.cell_tower, color: Colors.white, size: 36),
                 ),
                 const SizedBox(height: 20),
-                Text('Telecom Analyzer', style: AppTextStyles.displayLarge.copyWith(fontSize: 26)),
+                Text('Telecom Analyzer',
+                    style: AppTextStyles.displayLarge.copyWith(fontSize: 26)),
                 const SizedBox(height: 6),
                 Text('Sign in to your account', style: AppTextStyles.bodyMedium),
               ],
@@ -231,13 +217,11 @@ class _LoginForm extends StatelessWidget {
           ),
           const SizedBox(height: 36),
 
-          // ── Error banner ────────────────────────────────────────────────
           if (state.status == _LoginStatus.error && state.errorMessage != null) ...[
             _ErrorBanner(message: state.errorMessage!),
             const SizedBox(height: 16),
           ],
 
-          // ── Username / Email field ──────────────────────────────────────
           Text('Username or Email', style: AppTextStyles.labelLarge),
           const SizedBox(height: 8),
           TextFormField(
@@ -256,7 +240,6 @@ class _LoginForm extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // ── Password field ──────────────────────────────────────────────
           Text('Password', style: AppTextStyles.labelLarge),
           const SizedBox(height: 8),
           TextFormField(
@@ -271,8 +254,7 @@ class _LoginForm extends StatelessWidget {
               suffixIcon: IconButton(
                 icon: Icon(
                   obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  color: AppColors.textMuted,
-                  size: 20,
+                  color: AppColors.textMuted, size: 20,
                 ),
                 onPressed: onToggleObscure,
                 splashRadius: 18,
@@ -285,7 +267,6 @@ class _LoginForm extends StatelessWidget {
           ),
           const SizedBox(height: 28),
 
-          // ── Submit button ───────────────────────────────────────────────
           SizedBox(
             width: double.infinity,
             height: 52,
@@ -295,7 +276,7 @@ class _LoginForm extends StatelessWidget {
                   ? Container(
                       key: const ValueKey('loading'),
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.3),
+                        color: AppColors.accent.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Center(
@@ -313,7 +294,8 @@ class _LoginForm extends StatelessWidget {
                       onPressed: onSubmit,
                       style: ElevatedButton.styleFrom(
                         padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       ),
                       child: Ink(
                         decoration: BoxDecoration(
@@ -325,11 +307,12 @@ class _LoginForm extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(
-                          child: Text('Sign In', style: AppTextStyles.labelLarge.copyWith(
-                            color: AppColors.bgBase,
-                            fontSize: 15,
-                            letterSpacing: 0.6,
-                          )),
+                          child: Text('Sign In',
+                              style: AppTextStyles.labelLarge.copyWith(
+                                color: AppColors.bgBase,
+                                fontSize: 15,
+                                letterSpacing: 0.6,
+                              )),
                         ),
                       ),
                     ),
@@ -337,11 +320,11 @@ class _LoginForm extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
-          // ── Footer hint ─────────────────────────────────────────────────
           Center(
             child: Text(
               'Default credentials: admin / Admin@1234!',
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted, fontSize: 11),
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textMuted, fontSize: 11),
             ),
           ),
         ],
@@ -351,7 +334,6 @@ class _LoginForm extends StatelessWidget {
 }
 
 // ── Sub-widgets ────────────────────────────────────────────────────────────────
-
 class _GlowCircle extends StatelessWidget {
   const _GlowCircle({required this.color, required this.size});
   final Color color;
@@ -359,12 +341,11 @@ class _GlowCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
+    width: size, height: size,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       gradient: RadialGradient(
-        colors: [color.withOpacity(0.18), Colors.transparent],
+        colors: [color.withValues(alpha: 0.18), Colors.transparent],
         stops: const [0.0, 1.0],
       ),
     ),
@@ -383,9 +364,9 @@ class _GlassCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(36),
         decoration: BoxDecoration(
-          color: AppColors.bgSurface.withOpacity(0.75),
+          color: AppColors.bgSurface.withValues(alpha: 0.75),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.bgBorder.withOpacity(0.6)),
+          border: Border.all(color: AppColors.bgBorder.withValues(alpha: 0.6)),
         ),
         child: child,
       ),
@@ -401,15 +382,18 @@ class _ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     decoration: BoxDecoration(
-      color: AppColors.error.withOpacity(0.1),
+      color: AppColors.error.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: AppColors.error.withOpacity(0.4)),
+      border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
     ),
     child: Row(
       children: [
         const Icon(Icons.error_outline, color: AppColors.error, size: 18),
         const SizedBox(width: 10),
-        Expanded(child: Text(message, style: AppTextStyles.bodySmall.copyWith(color: AppColors.error))),
+        Expanded(
+          child: Text(message,
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.error)),
+        ),
       ],
     ),
   );

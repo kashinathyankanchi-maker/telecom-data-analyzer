@@ -1,16 +1,9 @@
 // lib/data/repositories/api_client.dart
-// ─────────────────────────────────────────────────────────────────────────────
-// Singleton Dio HTTP client with:
-//   - Automatic Bearer token injection from SecureStorage
-//   - 401 interception → triggers global logout signal
-// ─────────────────────────────────────────────────────────────────────────────
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import '../../core/constants.dart';
-import '../../core/storage.dart';
+import 'package:telecom_analyzer/core/constants.dart';
+import 'package:telecom_analyzer/core/storage.dart';
 
-/// Global callback invoked when the server returns 401 (token expired/invalid).
-/// Set by main.dart's auth provider to trigger navigation to the login screen.
 typedef OnUnauthorized = void Function();
 
 class ApiClient {
@@ -19,13 +12,10 @@ class ApiClient {
       baseUrl: ApiConstants.baseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 60),
-      sendTimeout:    const Duration(seconds: 60),
+      sendTimeout: const Duration(seconds: 60),
       headers: {'Accept': 'application/json'},
     ));
 
-    // ── Auth interceptor ──────────────────────────────────────────────────────
-    // Reads the stored token and injects it as a Bearer header on every request.
-    // On 401 response, fires the onUnauthorized callback.
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await SecureStorage.instance.getToken();
@@ -36,7 +26,6 @@ class ApiClient {
       },
       onError: (DioException e, handler) {
         if (e.response?.statusCode == 401) {
-          // Token expired or invalid — fire the global logout callback
           _onUnauthorized?.call();
         }
         handler.next(e);
@@ -58,7 +47,6 @@ class ApiClient {
 
   Dio get dio => _dio;
 
-  /// Register the logout handler (called from main.dart's auth provider).
   void setUnauthorizedCallback(OnUnauthorized cb) => _onUnauthorized = cb;
 
   String _extractMessage(DioException e) {
@@ -72,7 +60,6 @@ class ApiClient {
     return e.message ?? 'Network error';
   }
 
-  /// Wraps a Dio call and converts DioException → a human-readable Exception.
   static Future<T> call<T>(Future<T> Function() fn) async {
     try {
       return await fn();

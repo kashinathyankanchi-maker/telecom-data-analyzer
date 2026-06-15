@@ -1,6 +1,6 @@
 // lib/data/repositories/ingest_repository.dart
 import 'package:dio/dio.dart';
-import '../../core/constants.dart';
+import 'package:telecom_analyzer/core/constants.dart';
 import 'api_client.dart';
 
 class IngestResult {
