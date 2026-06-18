@@ -19,14 +19,16 @@ class AuthUser {
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
-    id: json['id'] as int,
-    username: json['username'] as String,
-    email: json['email'] as String,
-    role: json['role'] as String,
-    isActive: json['is_active'] as bool,
-    createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    username: json['username']?.toString() ?? 'Unknown',
+    email: json['email']?.toString() ?? '',
+    role: json['role']?.toString() ?? 'user',
+    isActive: json['is_active'] as bool? ?? true,
+    createdAt: json['created_at'] != null 
+        ? DateTime.tryParse(json['created_at'].toString())?.toLocal() ?? DateTime.now()
+        : DateTime.now(),
     lastLoginAt: json['last_login_at'] != null
-        ? DateTime.parse(json['last_login_at'] as String).toLocal()
+        ? DateTime.tryParse(json['last_login_at'].toString())?.toLocal()
         : null,
   );
 
@@ -47,9 +49,14 @@ class AuthToken {
   });
 
   factory AuthToken.fromJson(Map<String, dynamic> json) => AuthToken(
-    accessToken: json['access_token'] as String,
-    tokenType: json['token_type'] as String,
-    expiresIn: json['expires_in'] as int,
-    user: AuthUser.fromJson(json['user'] as Map<String, dynamic>),
+    accessToken: json['access_token']?.toString() ?? '',
+    tokenType: json['token_type']?.toString() ?? 'bearer',
+    expiresIn: (json['expires_in'] as num?)?.toInt() ?? 3600,
+    user: json['user'] != null 
+        ? AuthUser.fromJson(json['user'] as Map<String, dynamic>)
+        : AuthUser(
+            id: 0, username: 'Unknown', email: '', role: 'user', 
+            isActive: true, createdAt: DateTime.now()
+          ),
   );
 }
