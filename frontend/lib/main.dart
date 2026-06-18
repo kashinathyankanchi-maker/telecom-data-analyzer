@@ -41,29 +41,20 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(const AuthState.unknown()) {
+  AuthNotifier() : super(AuthState.authenticated(AuthUser(
+    id: 1, 
+    username: 'admin', 
+    email: 'admin@telecom.local', 
+    role: 'admin', 
+    isActive: true, 
+    createdAt: DateTime.now()
+  ))) {
     // Register the global 401 callback in the Dio client
     ApiClient.instance.setUnauthorizedCallback(logout);
-    _initialize();
+    // Bypassing normal token check to go straight into the app
   }
 
   final _repo = AuthRepository();
-
-  Future<void> _initialize() async {
-    final token = await SecureStorage.instance.getToken();
-    if (token == null) {
-      state = const AuthState.unauthenticated();
-      return;
-    }
-    // Validate the stored token against the server
-    try {
-      final user = await _repo.getMe();
-      state = AuthState.authenticated(user);
-    } catch (_) {
-      await SecureStorage.instance.clearAll();
-      state = const AuthState.unauthenticated();
-    }
-  }
 
   Future<void> logout() async {
     await _repo.logout();
