@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:telecom_analyzer/core/constants.dart';
 import 'package:telecom_analyzer/core/storage.dart';
+import 'package:telecom_analyzer/data/repositories/mock_interceptor.dart';
 
 typedef OnUnauthorized = void Function();
 
@@ -15,6 +16,9 @@ class ApiClient {
       sendTimeout: const Duration(seconds: 60),
       headers: {'Accept': 'application/json'},
     ));
+
+    // Enable Mock Mode so the app works without the Python backend
+    _dio.interceptors.add(MockInterceptor());
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
