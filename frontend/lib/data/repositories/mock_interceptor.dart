@@ -16,12 +16,14 @@ class MockInterceptor extends Interceptor {
         data: {
           'access_token': 'mock_jwt_token_123',
           'token_type': 'bearer',
+          'expires_in': 3600,
           'user': {
             'id': 1,
             'username': 'admin',
             'email': 'admin@telecom.local',
             'role': 'admin',
-            'is_active': true
+            'is_active': true,
+            'created_at': DateTime.now().toIso8601String()
           }
         },
       ));
@@ -37,7 +39,8 @@ class MockInterceptor extends Interceptor {
           'username': 'admin',
           'email': 'admin@telecom.local',
           'role': 'admin',
-          'is_active': true
+          'is_active': true,
+          'created_at': DateTime.now().toIso8601String()
         },
       ));
     }
