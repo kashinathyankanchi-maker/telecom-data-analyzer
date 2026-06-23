@@ -6,9 +6,9 @@
 class ApiConstants {
   ApiConstants._();
 
-  // Change this to your machine's IP when testing on a physical Android device.
-  // For Android emulator use 10.0.2.2. For Windows desktop use localhost.
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
+  // Physical Android device: use your PC's LAN IP (same WiFi network required)
+  // Android emulator: use 10.0.2.2  |  Windows desktop: use localhost
+  static const String baseUrl = 'http://10.143.153.224:8000/api/v1';
 
   // Endpoints
   static const String health  = '/health';

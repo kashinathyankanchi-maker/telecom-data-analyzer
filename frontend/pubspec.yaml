@@ -1,7 +1,7 @@
 name: telecom_analyzer
-description: Cross-Platform Telecom Data Analyzer — CDR, SDR, TDR analysis for Android and Windows.
+description: Windows Telecom Data Analyzer — Local CDR, SDR, TDR analysis with GPS mapping.
 publish_to: none
-version: 1.0.0+1
+version: 2.0.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -9,40 +9,40 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8          # Required Flutter icon font package
+  cupertino_icons: ^1.0.8
 
-  # ── Networking ───────────────────────────────────────────────────────────────
-  dio: ^5.4.3+1                    # HTTP client with interceptors & multipart upload
-  
   # ── State Management ─────────────────────────────────────────────────────────
-  flutter_riverpod: ^2.5.1         # Reactive state management
+  flutter_riverpod: ^2.5.1
 
   # ── Navigation ───────────────────────────────────────────────────────────────
-  go_router: ^14.1.4               # Declarative routing
+  go_router: ^14.1.4
 
-  # ── Maps (Feature D) ─────────────────────────────────────────────────────────
-  flutter_map: ^6.2.1              # OpenStreetMap-based map widget
-  latlong2: ^0.9.1                 # LatLng coordinate type used by flutter_map
+  # ── Local CSV Parsing ─────────────────────────────────────────────────────────
+  csv: ^6.0.0                        # Parse CSV files entirely in Dart
 
-  # ── Graph / Link Analysis (Feature C) ────────────────────────────────────────
-  graphview: ^1.5.1                # Force-directed / tree graph widget (API: FruchtermanReingoldConfiguration)
+  # ── Local Database (Windows FFI) ─────────────────────────────────────────────
+  sqflite_common_ffi: ^2.3.3         # SQLite on Windows desktop via FFI
+  sqflite: ^2.3.3                    # SQLite base package
+  path: ^1.9.0                       # Path utilities for database file location
 
-  # ── File Picker (Feature A) ──────────────────────────────────────────────────
-  file_picker: ^11.0.0             # Cross-platform file picker (v11 supports compileSdk 36)
+  # ── File Picker ──────────────────────────────────────────────────────────────
+  file_picker: ^11.0.0
+
+  # ── Maps ─────────────────────────────────────────────────────────────────────
+  flutter_map: ^6.2.1
+  latlong2: ^0.9.1
+
+  # ── Graph / Link Analysis ────────────────────────────────────────────────────
+  graphview: ^1.5.1
+
+  # ── Charts ───────────────────────────────────────────────────────────────────
+  fl_chart: ^0.68.0
 
   # ── UI Utilities ─────────────────────────────────────────────────────────────
-  google_fonts: ^6.2.1             # Inter font family
-  intl: ^0.19.0                    # Date formatting
-  shimmer: ^3.0.0                  # Loading skeleton effect
-  fl_chart: ^0.68.0                # Charts for call statistics
-  percent_indicator: ^4.2.3        # Progress/stat indicators
-  url_launcher: ^6.3.0             # Open external URLs
-
-  # ── Authentication ───────────────────────────────────────────────────────────
-  # Stores JWT tokens securely:
-  #   Android → EncryptedSharedPreferences
-  #   Windows → Windows Credential Manager
-  flutter_secure_storage: ^9.2.2
+  google_fonts: ^6.2.1
+  intl: ^0.19.0
+  percent_indicator: ^4.2.3
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

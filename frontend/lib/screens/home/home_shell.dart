@@ -1,16 +1,12 @@
 // lib/screens/home/home_shell.dart
-// ─────────────────────────────────────────────────────────────────────────────
-// Adaptive navigation shell:
-//   Mobile  → BottomNavigationBar
-//   Desktop → NavigationRail (extended)
-// ─────────────────────────────────────────────────────────────────────────────
+// Adaptive navigation shell for Windows desktop (NavigationRail).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants.dart';
 import '../../core/responsive.dart';
 import '../../core/theme.dart';
-import '../../main.dart' show authProvider;
+import '../../providers/data_store.dart';
 
 class HomeShell extends ConsumerWidget {
   const HomeShell({super.key, required this.child});
@@ -29,47 +25,13 @@ class HomeShell extends ConsumerWidget {
     return idx < 0 ? 0 : idx;
   }
 
-  Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    await ref.read(authProvider.notifier).logout();
-    if (context.mounted) context.go(AppRoutes.login);
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isMobile = Responsive.isMobile(context);
-    final index = _currentIndex(context);
+    final index   = _currentIndex(context);
+    final counts  = ref.watch(dbCountsProvider);
+    final total   = counts.when(data: (c) => c.values.fold(0, (a, b) => a + b), loading: () => 0, error: (_, __) => 0);
 
-    if (isMobile) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Telecom Analyzer'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: 'Sign out',
-              onPressed: () => _logout(context, ref),
-            ),
-          ],
-        ),
-        body: child,
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: AppColors.bgBorder)),
-          ),
-          child: BottomNavigationBar(
-            currentIndex: index,
-            onTap: (i) => context.go(_destinations[i].route),
-            items: _destinations.map((d) => BottomNavigationBarItem(
-              icon: Icon(d.icon),
-              activeIcon: Icon(d.activeIcon),
-              label: d.label,
-            )).toList(),
-          ),
-        ),
-      );
-    }
-
-    // Desktop / tablet layout with NavigationRail
+    // Always use NavigationRail on Windows
     return Scaffold(
       body: Row(
         children: [
@@ -86,10 +48,24 @@ class HomeShell extends ConsumerWidget {
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 20),
-                  child: IconButton(
-                    icon: const Icon(Icons.logout, color: AppColors.textMuted),
-                    tooltip: 'Sign out',
-                    onPressed: () => _logout(context, ref),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (total > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentGlow,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '$total records',
+                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.accent, fontSize: 10),
+                          ),
+                        ),
+                      const Icon(Icons.storage, color: AppColors.textMuted, size: 18),
+                    ],
                   ),
                 ),
               ),
@@ -122,8 +98,7 @@ class _AppLogo extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [AppColors.accent, AppColors.secondary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(10),
           ),
@@ -131,13 +106,10 @@ class _AppLogo extends StatelessWidget {
         ),
         if (!compact) ...[
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Telecom', style: AppTextStyles.labelLarge.copyWith(color: AppColors.accent)),
-              Text('Analyzer', style: AppTextStyles.bodySmall),
-            ],
-          ),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Telecom', style: AppTextStyles.labelLarge.copyWith(color: AppColors.accent)),
+            Text('Analyzer', style: AppTextStyles.bodySmall),
+          ]),
         ],
       ],
     );

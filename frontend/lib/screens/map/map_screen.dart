@@ -1,74 +1,15 @@
 // lib/screens/map/map_screen.dart
-// ─────────────────────────────────────────────────────────────────────────────
-// Feature D: Geo-Mapping Screen
-// Rules:
-//   - Full-bleed map (no AppBar overlap)
-//   - Map controls in FABs
-//   - Tower marker tap → showModalBottomSheet (NOT navigate)
-// ─────────────────────────────────────────────────────────────────────────────
+// Geo Map — shows GPS-tagged CDR records and TDR tower data from local database.
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/theme.dart';
+import '../../data/models/cdr_model.dart';
 import '../../data/models/tdr_model.dart';
-import '../../data/repositories/geo_repository.dart';
-import '../../widgets/empty_state.dart';
+import '../../providers/data_store.dart';
 
-// ── State ─────────────────────────────────────────────────────────────────────
-class _MapState {
-  final bool isLoading;
-  final GeoMapData? data;
-  final String? error;
-  final String? phone;
-  final bool showTimeline;
-
-  const _MapState({
-    this.isLoading = false,
-    this.data,
-    this.error,
-    this.phone,
-    this.showTimeline = false,
-  });
-
-  _MapState copyWith({
-    bool? isLoading,
-    GeoMapData? data,
-    String? error,
-    String? phone,
-    bool? showTimeline,
-  }) => _MapState(
-    isLoading: isLoading ?? this.isLoading,
-    data: data ?? this.data,
-    error: error ?? this.error,
-    phone: phone ?? this.phone,
-    showTimeline: showTimeline ?? this.showTimeline,
-  );
-}
-
-class _MapNotifier extends StateNotifier<_MapState> {
-  _MapNotifier() : super(const _MapState());
-  final _repo = GeoRepository();
-
-  void toggleTimeline() => state = state.copyWith(showTimeline: !state.showTimeline);
-
-  Future<void> loadMap(String phone) async {
-    if (phone.trim().isEmpty) return;
-    state = state.copyWith(isLoading: true, error: null, phone: phone.trim());
-    try {
-      final data = await _repo.fetchTowerMap(phone.trim());
-      state = state.copyWith(isLoading: false, data: data);
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
-}
-
-final _mapProvider = StateNotifierProvider.autoDispose<_MapNotifier, _MapState>(
-  (_) => _MapNotifier(),
-);
-
-// ── Screen ────────────────────────────────────────────────────────────────────
+// ── Screen ─────────────────────────────────────────────────────────────────────
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -77,457 +18,364 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
-  final _mapController = MapController();
-  final _phoneController = TextEditingController();
+  final _mapController  = MapController();
+  final _filterCtrl     = TextEditingController();
+  String _phoneFilter   = '';
+  bool   _showCdrPoints = true;
+  bool   _showTowers    = true;
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _filterCtrl.dispose();
     super.dispose();
   }
 
-  void _search() {
-    final phone = _phoneController.text.trim();
-    if (phone.isNotEmpty) ref.read(_mapProvider.notifier).loadMap(phone);
+  List<CdrModel> _filteredCdr(List<CdrModel> all) {
+    if (_phoneFilter.isEmpty) return all;
+    return all.where((c) =>
+      c.callerNumber.contains(_phoneFilter) || c.receiverNumber.contains(_phoneFilter)
+    ).toList();
   }
 
-  LatLng _computeCenter(List<TdrModel> towers) {
-    if (towers.isEmpty) return const LatLng(20.5937, 78.9629); // India center
-    final avgLat = towers.map((t) => t.latitude).reduce((a, b) => a + b) / towers.length;
-    final avgLon = towers.map((t) => t.longitude).reduce((a, b) => a + b) / towers.length;
+  LatLng _computeCenter(List<CdrModel> cdrPoints, List<TdrModel> towers) {
+    final points = <LatLng>[
+      ...cdrPoints.where((c) => c.hasGps).map((c) => c.latLng!),
+      ...towers.map((t) => t.latLng),
+    ];
+    if (points.isEmpty) return const LatLng(20.5937, 78.9629); // India
+    final avgLat = points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length;
+    final avgLon = points.map((p) => p.longitude).reduce((a, b) => a + b) / points.length;
     return LatLng(avgLat, avgLon);
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(_mapProvider);
-    final towers = state.data?.towers ?? [];
-    final timeline = state.data?.timeline ?? [];
-    final center = _computeCenter(towers);
+    final gpsCallsAsync = ref.watch(gpsCallsProvider);
+    final towersAsync   = ref.watch(allTowersProvider);
 
-    return Scaffold(
-      // NO appBar — full-bleed map
-      body: Stack(
-        children: [
-          // ── Full-bleed Map ─────────────────────────────────────────────────
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: center,
-              initialZoom: towers.isEmpty ? 5.0 : 12.0,
-            ),
-            children: [
-              // Base tile layer (OpenStreetMap — no API key needed)
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.telecom.analyzer',
-              ),
+    return gpsCallsAsync.when(
+      error: (e, _) => Center(child: Text('Error: $e')),
+      loading: () => const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppColors.accent))),
+      data: (allCdr) => towersAsync.when(
+        error: (e, _) => Center(child: Text('Error: $e')),
+        loading: () => const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppColors.accent))),
+        data: (towers) {
+          final cdrPoints = _filteredCdr(allCdr);
+          final center    = _computeCenter(cdrPoints, towers);
+          final hasData   = cdrPoints.isNotEmpty || towers.isNotEmpty;
+          final zoom      = hasData ? 12.0 : 5.0;
 
-              // Chronological path polyline
-              if (towers.length > 1)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: towers.map((t) => t.latLng).toList(),
-                      color: AppColors.accent.withOpacity(0.7),
-                      strokeWidth: 2.5,
-                      isDotted: false,
-                    ),
-                  ],
-                ),
-
-              // Tower markers
-              MarkerLayer(
-                markers: towers.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final tower = entry.value;
-                  return Marker(
-                    point: tower.latLng,
-                    width: 52,
-                    height: 52,
-                    child: GestureDetector(
-                      onTap: () => _showTowerSheet(context, tower, i + 1),
-                      child: _TowerMarker(
-                        index: i + 1,
-                        callCount: tower.callCount,
-                        isFirst: i == 0,
-                        isLast: i == towers.length - 1,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-
-          // ── Loading indicator ──────────────────────────────────────────────
-          if (state.isLoading)
-            Container(
-              color: Colors.black45,
-              child: const Center(child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppColors.accent),
-              )),
-            ),
-
-          // ── Empty/error state (when no data) ───────────────────────────────
-          if (!state.isLoading && state.data == null)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 80,
-              left: 0, right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  margin: const EdgeInsets.symmetric(horizontal: 40),
-                  decoration: BoxDecoration(
-                    color: AppColors.bgSurface.withOpacity(0.92),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.bgBorder),
-                  ),
-                  child: Text(
-                    state.error ?? 'Enter a phone number to map tower connections',
-                    style: AppTextStyles.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
-
-          // ── Top search bar (overlaid on map) ───────────────────────────────
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 12,
-            left: 16,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.bgSurface.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.bgBorder),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: Row(
+          return Scaffold(
+            body: Stack(children: [
+              // Full-bleed map
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(initialCenter: center, initialZoom: zoom),
                 children: [
-                  const Icon(Icons.phone, color: AppColors.accent, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: _phoneController,
-                      onSubmitted: (_) => _search(),
-                      decoration: const InputDecoration(
-                        hintText: 'Phone number…',
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.telecom.analyzer',
+                  ),
+
+                  // Polyline connecting CDR GPS points in time order
+                  if (_showCdrPoints && cdrPoints.length > 1)
+                    PolylineLayer(polylines: [
+                      Polyline(
+                        points: cdrPoints.where((c) => c.hasGps).map((c) => c.latLng!).toList(),
+                        color: AppColors.accent.withOpacity(0.5),
+                        strokeWidth: 2,
                       ),
-                      keyboardType: TextInputType.phone,
+                    ]),
+
+                  // TDR tower markers
+                  if (_showTowers)
+                    MarkerLayer(
+                      markers: towers.map((t) => Marker(
+                        point: t.latLng,
+                        width: 48, height: 48,
+                        child: GestureDetector(
+                          onTap: () => _showTowerSheet(t),
+                          child: _TowerMarker(cellId: t.cellId),
+                        ),
+                      )).toList(),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.search, color: AppColors.accent),
-                    onPressed: _search,
-                  ),
+
+                  // CDR GPS event markers
+                  if (_showCdrPoints)
+                    MarkerLayer(
+                      markers: cdrPoints.where((c) => c.hasGps).toList().asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final c = entry.value;
+                        return Marker(
+                          point: c.latLng!,
+                          width: 36, height: 36,
+                          child: GestureDetector(
+                            onTap: () => _showCdrSheet(c, i + 1),
+                            child: _CdrMarker(index: i + 1, isOutgoing: c.isOutgoing),
+                          ),
+                        );
+                      }).toList(),
+                    ),
                 ],
               ),
-            ),
-          ),
 
-          // ── Stats chip ─────────────────────────────────────────────────────
-          if (towers.isNotEmpty)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 80,
-              left: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.bgSurface.withOpacity(0.92),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.bgBorder),
+              // Empty state
+              if (!hasData)
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.all(32),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSurface.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.bgBorder),
+                    ),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.map_outlined, size: 48, color: AppColors.textMuted),
+                      const SizedBox(height: 12),
+                      Text('No GPS Data', style: AppTextStyles.titleLarge),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Import CDR files with latitude/longitude columns\nor TDR files with tower coordinates to see them here.',
+                        style: AppTextStyles.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ]),
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.cell_tower, size: 16, color: AppColors.accent),
-                    const SizedBox(width: 6),
-                    Text('${towers.length} towers', style: AppTextStyles.bodySmall.copyWith(color: AppColors.accent)),
-                    const SizedBox(width: 12),
-                    const Icon(Icons.call, size: 16, color: AppColors.secondary),
-                    const SizedBox(width: 6),
-                    Text('${timeline.length} calls', style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondary)),
-                  ],
-                ),
+
+              // Top controls bar
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 12,
+                left: 16, right: 16,
+                child: Column(children: [
+                  // Search filter
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSurface.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.bgBorder),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.phone, color: AppColors.accent, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _filterCtrl,
+                          onChanged: (v) => setState(() => _phoneFilter = v.trim()),
+                          onSubmitted: (v) => setState(() => _phoneFilter = v.trim()),
+                          decoration: const InputDecoration(
+                            hintText: 'Filter by phone number (optional)…',
+                            border: InputBorder.none, enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none, filled: false,
+                            isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                      if (_phoneFilter.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+                          onPressed: () { _filterCtrl.clear(); setState(() => _phoneFilter = ''); },
+                        ),
+                    ]),
+                  ),
+                  const SizedBox(height: 8),
+                  // Layer toggles
+                  Row(children: [
+                    _LayerChip(
+                      label: 'CDR Points (${cdrPoints.length})',
+                      active: _showCdrPoints,
+                      icon: Icons.call,
+                      color: AppColors.accent,
+                      onTap: () => setState(() => _showCdrPoints = !_showCdrPoints),
+                    ),
+                    const SizedBox(width: 8),
+                    _LayerChip(
+                      label: 'Towers (${towers.length})',
+                      active: _showTowers,
+                      icon: Icons.cell_tower,
+                      color: AppColors.secondary,
+                      onTap: () => setState(() => _showTowers = !_showTowers),
+                    ),
+                  ]),
+                ]),
               ),
-            ),
-
-          // ── Timeline panel (DraggableScrollableSheet) ──────────────────────
-          if (state.showTimeline && timeline.isNotEmpty)
-            DraggableScrollableSheet(
-              initialChildSize: 0.35,
-              minChildSize: 0.15,
-              maxChildSize: 0.7,
-              builder: (ctx, scrollController) => Container(
-                decoration: const BoxDecoration(
-                  color: AppColors.bgSurface,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                  border: Border(top: BorderSide(color: AppColors.bgBorder)),
-                ),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    Container(
-                      width: 36, height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.bgBorder,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.timeline, size: 18, color: AppColors.accent),
-                          const SizedBox(width: 8),
-                          Text('Call Timeline', style: AppTextStyles.titleLarge),
-                          const Spacer(),
-                          Text('${timeline.length} events', style: AppTextStyles.bodySmall),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    Expanded(
-                      child: ListView.builder(
-                        controller: scrollController,
-                        itemCount: timeline.length,
-                        itemBuilder: (_, i) => _TimelineRow(event: timeline[i]),
-                      ),
-                    ),
-                  ],
-                ),
+            ]),
+            floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+            floatingActionButton: Column(mainAxisSize: MainAxisSize.min, children: [
+              FloatingActionButton.small(
+                heroTag: 'zoom_in',
+                onPressed: () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1),
+                child: const Icon(Icons.add),
               ),
-            ),
-        ],
-      ),
-
-      // ── FAB Controls ──────────────────────────────────────────────────────
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Zoom in
-          FloatingActionButton.small(
-            heroTag: 'zoom_in',
-            onPressed: () => _mapController.move(
-              _mapController.camera.center,
-              _mapController.camera.zoom + 1,
-            ),
-            child: const Icon(Icons.add),
-          ),
-          const SizedBox(height: 8),
-          // Zoom out
-          FloatingActionButton.small(
-            heroTag: 'zoom_out',
-            onPressed: () => _mapController.move(
-              _mapController.camera.center,
-              _mapController.camera.zoom - 1,
-            ),
-            child: const Icon(Icons.remove),
-          ),
-          const SizedBox(height: 8),
-          // Center / fit all markers
-          FloatingActionButton.small(
-            heroTag: 'center',
-            onPressed: () {
-              if (towers.isNotEmpty) _mapController.move(center, 12.0);
-            },
-            child: const Icon(Icons.my_location),
-          ),
-          const SizedBox(height: 8),
-          // Toggle timeline panel
-          FloatingActionButton(
-            heroTag: 'timeline',
-            onPressed: ref.read(_mapProvider.notifier).toggleTimeline,
-            backgroundColor: state.showTimeline ? AppColors.accent : AppColors.bgElevated,
-            foregroundColor: state.showTimeline ? AppColors.bgBase : AppColors.accent,
-            child: const Icon(Icons.timeline),
-          ),
-        ],
+              const SizedBox(height: 8),
+              FloatingActionButton.small(
+                heroTag: 'zoom_out',
+                onPressed: () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1),
+                child: const Icon(Icons.remove),
+              ),
+              const SizedBox(height: 8),
+              FloatingActionButton.small(
+                heroTag: 'center',
+                onPressed: () { if (hasData) _mapController.move(center, 12.0); },
+                child: const Icon(Icons.my_location),
+              ),
+            ]),
+          );
+        },
       ),
     );
   }
 
-  void _showTowerSheet(BuildContext context, TdrModel tower, int index) {
+  void _showTowerSheet(TdrModel tower) {
     showModalBottomSheet(
       context: context,
-      builder: (_) => _TowerDetailSheet(tower: tower, index: index),
-    );
-  }
-}
-
-// ── Tower Marker ──────────────────────────────────────────────────────────────
-class _TowerMarker extends StatelessWidget {
-  const _TowerMarker({
-    required this.index,
-    required this.callCount,
-    required this.isFirst,
-    required this.isLast,
-  });
-
-  final int index;
-  final int callCount;
-  final bool isFirst;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isFirst ? AppColors.success : (isLast ? AppColors.error : AppColors.accent);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            shape: BoxShape.circle,
-            border: Border.all(color: color, width: 2),
-            boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, spreadRadius: 1)],
-          ),
-          child: Center(
-            child: Text(
-              '$index',
-              style: AppTextStyles.labelLarge.copyWith(color: color, fontSize: 13),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Tower Detail Bottom Sheet ─────────────────────────────────────────────────
-class _TowerDetailSheet extends StatelessWidget {
-  const _TowerDetailSheet({required this.tower, required this.index});
-  final TdrModel tower;
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentGlow,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.cell_tower, color: AppColors.accent, size: 28),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Tower #$index', style: AppTextStyles.bodySmall),
-                      Text(tower.cellId, style: AppTextStyles.titleLarge),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 12),
-            _TowerDetailRow(icon: Icons.location_on_outlined, label: 'Coordinates',
-              value: '${tower.latitude.toStringAsFixed(6)}, ${tower.longitude.toStringAsFixed(6)}'),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: AppColors.accentGlow, borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.cell_tower, color: AppColors.accent, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Cell Tower', style: AppTextStyles.bodySmall),
+                Text(tower.cellId, style: AppTextStyles.titleLarge),
+              ]),
+            ]),
+            const Divider(height: 24),
+            _DetailRow(Icons.location_on_outlined, 'Coordinates',
+              '${tower.latitude.toStringAsFixed(6)}, ${tower.longitude.toStringAsFixed(6)}'),
             if (tower.azimuth != null)
-              _TowerDetailRow(icon: Icons.explore_outlined, label: 'Azimuth', value: '${tower.azimuth}°'),
-            _TowerDetailRow(icon: Icons.call, label: 'Call Count', value: '${tower.callCount}'),
-            if (tower.formattedFirstContact != null)
-              _TowerDetailRow(icon: Icons.access_time, label: 'First Contact', value: tower.formattedFirstContact!),
-            const SizedBox(height: 8),
-          ],
+              _DetailRow(Icons.explore_outlined, 'Azimuth', '${tower.azimuth}°'),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _showCdrSheet(CdrModel cdr, int index) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(cdr.isOutgoing ? Icons.call_made : Icons.call_received,
+                color: cdr.isOutgoing ? AppColors.accent : AppColors.success, size: 28),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Call Event #$index', style: AppTextStyles.bodySmall),
+                Text(cdr.isOutgoing ? cdr.receiverNumber : cdr.callerNumber, style: AppTextStyles.titleLarge),
+              ])),
+            ]),
+            const Divider(height: 24),
+            _DetailRow(Icons.access_time, 'Time', cdr.formattedTime),
+            _DetailRow(Icons.timer_outlined, 'Duration', cdr.formattedDuration),
+            _DetailRow(Icons.location_on_outlined, 'GPS',
+              '${cdr.latitude?.toStringAsFixed(6)}, ${cdr.longitude?.toStringAsFixed(6)}'),
+            if (cdr.cellId != null)
+              _DetailRow(Icons.cell_tower, 'Cell ID', cdr.cellId!),
+          ]),
         ),
       ),
     );
   }
 }
 
-class _TowerDetailRow extends StatelessWidget {
-  const _TowerDetailRow({required this.icon, required this.label, required this.value});
+class _DetailRow extends StatelessWidget {
+  const _DetailRow(this.icon, this.label, this.value);
   final IconData icon;
-  final String label;
-  final String value;
+  final String label, value;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Row(
-      children: [
-        Icon(icon, size: 18, color: AppColors.textMuted),
-        const SizedBox(width: 12),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: AppTextStyles.bodySmall),
-            Text(value, style: AppTextStyles.labelLarge),
-          ],
-        )),
-      ],
-    ),
+    child: Row(children: [
+      Icon(icon, size: 18, color: AppColors.textMuted),
+      const SizedBox(width: 12),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: AppTextStyles.bodySmall),
+        Text(value, style: AppTextStyles.labelLarge),
+      ]),
+    ]),
   );
 }
 
-// ── Timeline Row ──────────────────────────────────────────────────────────────
-class _TimelineRow extends StatelessWidget {
-  const _TimelineRow({required this.event});
-  final TowerTimelineEvent event;
+// ── Markers ────────────────────────────────────────────────────────────────────
+class _TowerMarker extends StatelessWidget {
+  const _TowerMarker({required this.cellId});
+  final String cellId;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: AppColors.bgBorder)),
+  Widget build(BuildContext context) => Column(mainAxisSize: MainAxisSize.min, children: [
+    Container(
+      width: 36, height: 36,
+      decoration: BoxDecoration(
+        color: AppColors.secondary.withOpacity(0.2),
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.secondary, width: 2),
+        boxShadow: [BoxShadow(color: AppColors.secondary.withOpacity(0.4), blurRadius: 8)],
+      ),
+      child: const Icon(Icons.cell_tower, color: AppColors.secondary, size: 18),
     ),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: AppColors.accentGlow,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.cell_tower, size: 14, color: AppColors.accent),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${event.callerNumber} → ${event.receiverNumber}',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary),
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text('${event.formattedTime}  ·  Tower: ${event.cellId}',
-                style: AppTextStyles.bodySmall),
-            ],
-          ),
-        ),
-        if (event.durationSeconds != null)
-          Text(
-            '${event.durationSeconds}s',
-            style: AppTextStyles.bodySmall.copyWith(color: AppColors.accent),
-          ),
-      ],
+  ]);
+}
+
+class _CdrMarker extends StatelessWidget {
+  const _CdrMarker({required this.index, required this.isOutgoing});
+  final int index;
+  final bool isOutgoing;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isOutgoing ? AppColors.accent : AppColors.success;
+    return Container(
+      width: 28, height: 28,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.85),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.5), blurRadius: 6)],
+      ),
+      child: Center(
+        child: Text('$index', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+}
+
+class _LayerChip extends StatelessWidget {
+  const _LayerChip({required this.label, required this.active, required this.icon, required this.color, required this.onTap});
+  final String label;
+  final bool active;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: active ? color.withOpacity(0.15) : AppColors.bgSurface.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: active ? color : AppColors.bgBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 14, color: active ? color : AppColors.textMuted),
+        const SizedBox(width: 6),
+        Text(label, style: AppTextStyles.bodySmall.copyWith(color: active ? color : AppColors.textMuted)),
+      ]),
     ),
   );
 }

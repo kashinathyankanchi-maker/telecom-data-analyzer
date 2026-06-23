@@ -3,33 +3,32 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 
 class TdrModel {
+  final int id;
   final String cellId;
   final double latitude;
   final double longitude;
-  final int? azimuth;
-  // Below fields only present in geo-map responses
-  final String? firstContact;
-  final String? lastContact;
+  final double? azimuth;
   final int callCount;
+  final String? firstContact;
 
   const TdrModel({
+    this.id = 0,
     required this.cellId,
     required this.latitude,
     required this.longitude,
     this.azimuth,
-    this.firstContact,
-    this.lastContact,
     this.callCount = 0,
+    this.firstContact,
   });
 
-  factory TdrModel.fromJson(Map<String, dynamic> json) => TdrModel(
-    cellId: json['cell_id'] as String,
-    latitude: (json['latitude'] as num).toDouble(),
-    longitude: (json['longitude'] as num).toDouble(),
-    azimuth: (json['azimuth'] as num?)?.toInt(),
-    firstContact: json['first_contact'] as String?,
-    lastContact: json['last_contact'] as String?,
-    callCount: (json['call_count'] as num?)?.toInt() ?? 0,
+  factory TdrModel.fromDbRow(Map<String, dynamic> row) => TdrModel(
+    id: (row['id'] as num?)?.toInt() ?? 0,
+    cellId: row['cell_id']?.toString() ?? '',
+    latitude: (row['latitude'] as num).toDouble(),
+    longitude: (row['longitude'] as num).toDouble(),
+    azimuth: (row['azimuth'] as num?)?.toDouble(),
+    callCount: (row['call_count'] as num?)?.toInt() ?? 0,
+    firstContact: row['first_contact']?.toString(),
   );
 
   LatLng get latLng => LatLng(latitude, longitude);
@@ -39,52 +38,26 @@ class TdrModel {
       : null;
 }
 
-/// A single CDR event in the geo-map timeline.
-class TowerTimelineEvent {
-  final DateTime callTime;
-  final String cellId;
+/// GPS point from a CDR row (for map display).
+class GpsCdrPoint {
+  final double latitude;
+  final double longitude;
   final String callerNumber;
   final String receiverNumber;
-  final int? durationSeconds;
+  final DateTime callTime;
+  final int durationSeconds;
+  final String? cellId;
 
-  const TowerTimelineEvent({
-    required this.callTime,
-    required this.cellId,
+  const GpsCdrPoint({
+    required this.latitude,
+    required this.longitude,
     required this.callerNumber,
     required this.receiverNumber,
-    this.durationSeconds,
+    required this.callTime,
+    required this.durationSeconds,
+    this.cellId,
   });
 
-  factory TowerTimelineEvent.fromJson(Map<String, dynamic> json) =>
-      TowerTimelineEvent(
-        callTime: DateTime.parse(json['call_time'] as String).toLocal(),
-        cellId: json['cell_id'] as String,
-        callerNumber: json['caller_number'] as String,
-        receiverNumber: json['receiver_number'] as String,
-        durationSeconds: (json['duration_seconds'] as num?)?.toInt(),
-      );
-
-  String get formattedTime => DateFormat('dd MMM HH:mm:ss').format(callTime);
-}
-
-class GeoMapData {
-  final String phoneNumber;
-  final List<TdrModel> towers;
-  final List<TowerTimelineEvent> timeline;
-
-  const GeoMapData({
-    required this.phoneNumber,
-    required this.towers,
-    required this.timeline,
-  });
-
-  factory GeoMapData.fromJson(Map<String, dynamic> json) => GeoMapData(
-    phoneNumber: json['phone_number'] as String,
-    towers: (json['towers'] as List<dynamic>)
-        .map((e) => TdrModel.fromJson(e as Map<String, dynamic>))
-        .toList(),
-    timeline: (json['timeline'] as List<dynamic>)
-        .map((e) => TowerTimelineEvent.fromJson(e as Map<String, dynamic>))
-        .toList(),
-  );
+  LatLng get latLng => LatLng(latitude, longitude);
+  String get formattedTime => DateFormat('dd MMM HH:mm').format(callTime);
 }

@@ -1,9 +1,9 @@
 // lib/widgets/loading_overlay.dart
+// Simple loading overlay — shimmer removed (no longer a dependency).
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
 import '../core/theme.dart';
 
-/// Full-screen loading overlay with a frosted-glass effect.
+/// Full-screen loading overlay.
 class LoadingOverlay extends StatelessWidget {
   const LoadingOverlay({super.key, this.message});
   final String? message;
@@ -17,8 +17,7 @@ class LoadingOverlay extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(
-              width: 48,
-              height: 48,
+              width: 48, height: 48,
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                 strokeWidth: 2.5,
@@ -35,29 +34,25 @@ class LoadingOverlay extends StatelessWidget {
   }
 }
 
-/// Shimmer placeholder row for skeleton loading.
+/// Animated placeholder row for skeleton loading.
 class ShimmerRow extends StatelessWidget {
   const ShimmerRow({super.key, this.height = 56});
   final double height;
 
   @override
   Widget build(BuildContext context) {
-    return Shimmer.fromColors(
-      baseColor: AppColors.bgSurface,
-      highlightColor: AppColors.bgElevated,
-      child: Container(
-        height: height,
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: AppColors.bgSurface,
-          borderRadius: BorderRadius.circular(12),
-        ),
+    return Container(
+      height: height,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.bgSurface,
+        borderRadius: BorderRadius.circular(12),
       ),
     );
   }
 }
 
-/// Shows 5 shimmer rows as a loading list placeholder.
+/// Shows N placeholder rows as a loading list.
 class ShimmerList extends StatelessWidget {
   const ShimmerList({super.key, this.count = 5, this.rowHeight = 56});
   final int count;
