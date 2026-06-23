@@ -16,9 +16,9 @@ class GraphNode {
   });
 
   factory GraphNode.fromJson(Map<String, dynamic> json) => GraphNode(
-    id: json['id'] as String,
-    label: json['label'] as String,
-    isSuspect: json['is_suspect'] as bool,
+    id: json['id']?.toString() ?? '',
+    label: json['label']?.toString() ?? json['id']?.toString() ?? '',
+    isSuspect: json['is_suspect'] as bool? ?? false,
     subscriber: json['subscriber'] as Map<String, dynamic>?,
   );
 }
@@ -37,10 +37,10 @@ class GraphEdge {
   });
 
   factory GraphEdge.fromJson(Map<String, dynamic> json) => GraphEdge(
-    source: json['source'] as String,
-    target: json['target'] as String,
-    callCount: (json['call_count'] as num).toInt(),
-    totalDuration: (json['total_duration'] as num).toInt(),
+    source: json['source']?.toString() ?? '',
+    target: json['target']?.toString() ?? '',
+    callCount: (json['call_count'] as num?)?.toInt() ?? 0,
+    totalDuration: (json['total_duration'] as num?)?.toInt() ?? 0,
   );
 }
 

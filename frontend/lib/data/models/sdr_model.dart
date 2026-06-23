@@ -15,11 +15,11 @@ class SdrModel {
   });
 
   factory SdrModel.fromJson(Map<String, dynamic> json) => SdrModel(
-    phoneNumber: json['phone_number'] as String,
-    subscriberName: json['subscriber_name'] as String?,
-    address: json['address'] as String?,
+    phoneNumber: json['phone_number']?.toString() ?? '',
+    subscriberName: json['subscriber_name']?.toString(),
+    address: json['address']?.toString(),
     activationDate: json['activation_date'] != null
-        ? DateTime.tryParse(json['activation_date'] as String)
+        ? DateTime.tryParse(json['activation_date'].toString())
         : null,
   );
 

@@ -23,14 +23,16 @@ class CdrModel {
   });
 
   factory CdrModel.fromJson(Map<String, dynamic> json) => CdrModel(
-    id: json['id'] as int,
-    callerNumber: json['caller_number'] as String,
-    receiverNumber: json['receiver_number'] as String,
-    callTime: DateTime.parse(json['call_time'] as String).toLocal(),
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    callerNumber: json['caller_number']?.toString() ?? '',
+    receiverNumber: json['receiver_number']?.toString() ?? '',
+    callTime: json['call_time'] != null
+        ? DateTime.tryParse(json['call_time'].toString())?.toLocal() ?? DateTime.now()
+        : DateTime.now(),
     durationSeconds: (json['duration_seconds'] as num?)?.toInt() ?? 0,
-    callType: json['call_type'] as String,
-    imeiNumber: json['imei_number'] as String?,
-    cellId: json['cell_id'] as String?,
+    callType: json['call_type']?.toString() ?? 'unknown',
+    imeiNumber: json['imei_number']?.toString(),
+    cellId: json['cell_id']?.toString(),
   );
 
   String get formattedTime =>
